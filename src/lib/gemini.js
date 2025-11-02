@@ -16,18 +16,40 @@ function convertImageToJPEG(file) {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d')
           
+          // Calculate max dimensions (to prevent memory issues and keep file size reasonable)
+          const maxDimension = 4096
+          let width = img.width
+          let height = img.height
+          
+          if (width > maxDimension || height > maxDimension) {
+            const scale = Math.min(maxDimension / width, maxDimension / height)
+            width = Math.floor(width * scale)
+            height = Math.floor(height * scale)
+          }
+          
           // Set canvas dimensions
-          canvas.width = img.width
-          canvas.height = img.height
+          canvas.width = width
+          canvas.height = height
           
           // Draw image to canvas (this converts any format to canvas-compatible format)
-          ctx.drawImage(img, 0, 0)
+          ctx.drawImage(img, 0, 0, width, height)
           
-          // Convert canvas to base64 JPEG
-          const base64Data = canvas.toDataURL('image/jpeg', 0.95).split(',')[1]
+          // Convert canvas to base64 JPEG with quality 0.9 (balance between quality and size)
+          const base64Data = canvas.toDataURL('image/jpeg', 0.9)
+          
+          // Extract base64 part
+          if (!base64Data || !base64Data.includes(',')) {
+            throw new Error('Failed to generate base64 data')
+          }
+          
+          const base64String = base64Data.split(',')[1]
+          
+          if (!base64String || base64String.length === 0) {
+            throw new Error('Empty base64 data generated')
+          }
           
           resolve({
-            base64: base64Data,
+            base64: base64String,
             mimeType: 'image/jpeg'
           })
         } catch (error) {
@@ -35,15 +57,43 @@ function convertImageToJPEG(file) {
         }
       }
 
-      img.onerror = () => {
-        reject(new Error('Failed to load image'))
+      img.onerror = (error) => {
+        // If image fails to load (e.g., HEIC), try using the original base64 data if it's a supported format
+        console.warn('Image failed to load in Image element, checking if format is supported')
+        try {
+          const result = e.target.result
+          if (result && typeof result === 'string' && result.includes(',')) {
+            let base64Data = result.split(',')[1].replace(/\s/g, '').replace(/\n/g, '').replace(/\r/g, '')
+            const mimeTypeMatch = result.split(',')[0].match(/data:([^;]+)/)
+            const originalMimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg'
+            
+            // Check if it's HEIC/HEIF - these can't be sent directly to Gemini
+            if (originalMimeType.includes('heic') || originalMimeType.includes('heif')) {
+              reject(new Error('HEIC/HEIF format is not supported. Please convert your image to JPEG or PNG format first. On iPhone, you can change the camera settings to use "Most Compatible" format.'))
+              return
+            }
+            
+            // If it's already a supported format, use it directly
+            if (originalMimeType.includes('jpeg') || originalMimeType.includes('png') || originalMimeType.includes('webp')) {
+              resolve({
+                base64: base64Data,
+                mimeType: originalMimeType.includes('jpeg') ? 'image/jpeg' : originalMimeType
+              })
+              return
+            }
+          }
+        } catch (err) {
+          console.error('Error in fallback:', err)
+        }
+        reject(new Error('Failed to load image. The image format may not be supported. Please try converting to JPEG or PNG format.'))
       }
 
+      // Don't set crossOrigin for data URLs as it can cause issues
       img.src = e.target.result
     }
 
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'))
+    reader.onerror = (error) => {
+      reject(new Error('Failed to read file: ' + (error.message || 'Unknown error')))
     }
 
     reader.readAsDataURL(file)
@@ -58,14 +108,25 @@ function convertImageToJPEG(file) {
  */
 export async function processImageWithGemini(file, prompt) {
   try {
+    // Check file size (limit to 10MB)
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    if (file.size > maxSize) {
+      throw new Error('Image is too large. Please use an image smaller than 10MB.')
+    }
+
     // Convert image to JPEG format (handles HEIC and other unsupported formats)
     const { base64, mimeType } = await convertImageToJPEG(file)
     
     // Remove any whitespace from base64 string
-    const cleanBase64 = base64.replace(/\s/g, '')
+    const cleanBase64 = base64.replace(/\s/g, '').replace(/\n/g, '').replace(/\r/g, '')
     
     if (!cleanBase64) {
       throw new Error('Empty image data after conversion')
+    }
+
+    // Validate base64 length
+    if (cleanBase64.length < 100) {
+      throw new Error('Image data is too small')
     }
 
     // Send to API route
