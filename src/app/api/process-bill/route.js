@@ -12,6 +12,32 @@ export async function POST(request) {
       )
     }
 
+    // Validate and clean base64 data
+    let cleanImageData = imageData.toString().trim()
+    // Remove any whitespace or line breaks
+    cleanImageData = cleanImageData.replace(/\s/g, '')
+    
+    // Validate base64 format
+    const base64Regex = /^[A-Za-z0-9+/=]+$/
+    if (!base64Regex.test(cleanImageData)) {
+      return NextResponse.json(
+        { error: 'Invalid image data format' },
+        { status: 400 }
+      )
+    }
+
+    // Normalize MIME type
+    let normalizedMimeType = mimeType || 'image/jpeg'
+    if (!normalizedMimeType.startsWith('image/')) {
+      normalizedMimeType = 'image/jpeg'
+    }
+    
+    // Ensure supported MIME type
+    const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!supportedTypes.includes(normalizedMimeType.toLowerCase())) {
+      normalizedMimeType = 'image/jpeg'
+    }
+
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
@@ -27,8 +53,8 @@ export async function POST(request) {
     const contents = [
       {
         inlineData: {
-          mimeType: mimeType || 'image/jpeg',
-          data: imageData,
+          mimeType: normalizedMimeType,
+          data: cleanImageData,
         },
       },
       { text: prompt },
