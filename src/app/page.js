@@ -55,15 +55,53 @@ export default function Home() {
       try {
         // Clean the response - remove any markdown code blocks if present
         let jsonString = response.trim()
-        if (jsonString.startsWith('```json')) {
-          jsonString = jsonString.replace(/```json\n?/g, '').replace(/```\n?/g, '')
-        } else if (jsonString.startsWith('```')) {
-          jsonString = jsonString.replace(/```\n?/g, '')
+        
+        // Remove markdown code blocks
+        if (jsonString.includes('```json')) {
+          jsonString = jsonString.replace(/```json[\s\S]*?```/g, '')
+          const match = response.match(/```json\s*([\s\S]*?)\s*```/)
+          if (match && match[1]) {
+            jsonString = match[1].trim()
+          }
+        } else if (jsonString.includes('```')) {
+          jsonString = jsonString.replace(/```[\s\S]*?```/g, '')
+          const match = response.match(/```\s*([\s\S]*?)\s*```/)
+          if (match && match[1]) {
+            jsonString = match[1].trim()
+          }
         }
+        
+        // Remove any leading/trailing text that's not JSON
+        // Try to find JSON object boundaries
+        const jsonStart = jsonString.indexOf('{')
+        const jsonEnd = jsonString.lastIndexOf('}')
+        
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          jsonString = jsonString.substring(jsonStart, jsonEnd + 1)
+        } else {
+          // If no JSON boundaries found, try to extract JSON from the string
+          const jsonMatch = jsonString.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            jsonString = jsonMatch[0]
+          }
+        }
+        
+        // Clean up any extra whitespace/newlines (but preserve structure)
+        jsonString = jsonString.trim()
+        
         parsedData = JSON.parse(jsonString)
       } catch (parseError) {
         console.error('Failed to parse JSON:', parseError)
-        setBillError('Failed to parse bill data. Please try again or enter manually.')
+        console.error('Parse error message:', parseError.message)
+        console.error('JSON string attempted:', jsonString.substring(0, 200))
+        console.error('Full response:', response)
+        
+        // Check if error message mentions pattern
+        if (parseError.message && parseError.message.includes('pattern')) {
+          setBillError(`Invalid response format from API. Error: ${parseError.message}. Please try uploading the bill again.`)
+        } else {
+          setBillError(`Failed to parse bill data: ${parseError.message}. Please try again or enter manually.`)
+        }
         setProcessing(false)
         return
       }
@@ -108,7 +146,12 @@ export default function Home() {
       router.push('/items')
     } catch (error) {
       console.error('Error processing bill:', error)
-      setBillError('Failed to process bill: ' + error.message)
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      setBillError(`Failed to process bill: ${error.message || 'Unknown error'}`)
     } finally {
       setProcessing(false)
     }

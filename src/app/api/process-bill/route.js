@@ -95,23 +95,57 @@ export async function POST(request) {
 
       // Handle response - check the actual response structure
       let responseText = ''
-      if (typeof response.text === 'string') {
-        responseText = response.text
-      } else if (response.text && typeof response.text === 'function') {
-        responseText = await response.text()
-      } else if (response.response && response.response.text) {
-        responseText = typeof response.response.text === 'function' 
-          ? await response.response.text() 
-          : response.response.text
-      } else if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-        const parts = response.candidates[0].content.parts
-        if (parts && parts[0] && parts[0].text) {
-          responseText = parts[0].text
+      
+      // Try multiple ways to extract text based on Gemini SDK version
+      try {
+        // Method 1: Direct text property (string)
+        if (typeof response.text === 'string') {
+          responseText = response.text
         }
-      } else {
-        // Log the response structure for debugging
-        console.error('Unexpected response structure:', JSON.stringify(response, null, 2).substring(0, 500))
-        responseText = JSON.stringify(response)
+        // Method 2: Text as async function
+        else if (response.text && typeof response.text === 'function') {
+          responseText = await response.text()
+        }
+        // Method 3: Response object with text
+        else if (response.response) {
+          if (typeof response.response.text === 'function') {
+            responseText = await response.response.text()
+          } else if (typeof response.response.text === 'string') {
+            responseText = response.response.text
+          } else if (response.response.candidates && response.response.candidates[0]) {
+            const candidate = response.response.candidates[0]
+            if (candidate.content && candidate.content.parts) {
+              responseText = candidate.content.parts.map(p => p.text).join('')
+            }
+          }
+        }
+        // Method 4: Candidates structure
+        else if (response.candidates && response.candidates[0]) {
+          const candidate = response.candidates[0]
+          if (candidate.content && candidate.content.parts) {
+            responseText = candidate.content.parts.map(p => p.text || '').join('')
+          } else if (candidate.text) {
+            responseText = candidate.text
+          }
+        }
+        // Method 5: Fallback - try to stringify and extract
+        else {
+          console.warn('Unexpected response structure, attempting to extract text')
+          const responseStr = JSON.stringify(response)
+          const textMatch = responseStr.match(/"text":\s*"([^"]+)"/)
+          if (textMatch) {
+            responseText = textMatch[1]
+          } else {
+            responseText = responseStr
+          }
+        }
+
+        if (!responseText || responseText.trim().length === 0) {
+          throw new Error('Empty response from Gemini API')
+        }
+      } catch (extractError) {
+        console.error('Error extracting response text:', extractError)
+        throw new Error('Failed to extract response from Gemini API: ' + extractError.message)
       }
 
       return NextResponse.json({

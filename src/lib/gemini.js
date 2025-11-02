@@ -16,8 +16,8 @@ function convertImageToJPEG(file) {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d')
           
-          // Calculate max dimensions (to prevent memory issues and keep file size reasonable)
-          const maxDimension = 4096
+          // Calculate max dimensions (Gemini API has limits, use smaller size for better compatibility)
+          const maxDimension = 2048 // Reduced from 4096 to ensure compatibility
           let width = img.width
           let height = img.height
           
@@ -34,18 +34,40 @@ function convertImageToJPEG(file) {
           // Draw image to canvas (this converts any format to canvas-compatible format)
           ctx.drawImage(img, 0, 0, width, height)
           
-          // Convert canvas to base64 JPEG with quality 0.9 (balance between quality and size)
-          const base64Data = canvas.toDataURL('image/jpeg', 0.9)
+          // Convert canvas to base64 JPEG with quality 0.85 (slightly lower to reduce size)
+          const base64Data = canvas.toDataURL('image/jpeg', 0.85)
           
           // Extract base64 part
           if (!base64Data || !base64Data.includes(',')) {
             throw new Error('Failed to generate base64 data')
           }
           
-          const base64String = base64Data.split(',')[1]
+          let base64String = base64Data.split(',')[1]
           
           if (!base64String || base64String.length === 0) {
             throw new Error('Empty base64 data generated')
+          }
+          
+          // Clean base64 string - remove any potential issues
+          base64String = base64String.replace(/\s/g, '').replace(/\n/g, '').replace(/\r/g, '')
+          
+          // Validate base64 length is reasonable (not too large)
+          const maxBase64Size = 20 * 1024 * 1024 // ~20MB base64 (roughly 15MB image)
+          if (base64String.length > maxBase64Size) {
+            // If too large, reduce quality further
+            const reducedQualityBase64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1]
+            base64String = reducedQualityBase64.replace(/\s/g, '')
+            
+            if (base64String.length > maxBase64Size) {
+              // Still too large, scale down more
+              const smallScale = Math.min(1536 / width, 1536 / height)
+              const smallWidth = Math.floor(width * smallScale)
+              const smallHeight = Math.floor(height * smallScale)
+              canvas.width = smallWidth
+              canvas.height = smallHeight
+              ctx.drawImage(img, 0, 0, smallWidth, smallHeight)
+              base64String = canvas.toDataURL('image/jpeg', 0.7).split(',')[1].replace(/\s/g, '')
+            }
           }
           
           resolve({
@@ -143,11 +165,17 @@ export async function processImageWithGemini(file, prompt) {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to process image')
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+      const errorMsg = errorData.error || errorData.details || 'Failed to process image'
+      console.error('API error response:', errorData)
+      throw new Error(errorMsg)
     }
 
     const data = await response.json()
+    if (!data.success) {
+      console.error('API returned unsuccessful:', data)
+      throw new Error(data.error || 'Failed to process image')
+    }
     return data.text
   } catch (error) {
     throw error
