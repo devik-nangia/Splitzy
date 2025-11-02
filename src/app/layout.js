@@ -32,7 +32,7 @@ export default function RootLayout({ children }) {
         <footer className="text-center py-4 text-sm text-gray-500 border-t">
           Created by{" "}
           <a
-            href="www.linkedin.com/in/devik-nangia-862225329"
+            href="https://www.linkedin.com/in/devik-nangia-862225329"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 hover:underline"
