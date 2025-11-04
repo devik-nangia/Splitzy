@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Splitzy
 
-## Getting Started
+Splitzy is a web application that helps you split bills with friends. You can either upload a picture of your bill or enter the items manually, and Splitzy will handle the rest.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+*   **Bill Scanning:** Upload a photo of your bill, and Splitzy will automatically extract the items and prices.
+*   **Manual Entry:** If you prefer, you can enter the bill items manually.
+*   **Easy Splitting:** Assign items to different people to split the bill.
+*   **Tax Calculation:** Splitzy can also handle the tax calculation for you.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## How to Use
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+1.  **Upload or Enter Manually:**
+    *   Click on "Upload Bill Photo" to upload an image of your bill.
+    *   Or, click on "Enter Manually" to input the items by hand.
+2.  **Verify Items:**
+    *   Splitzy will display the extracted items and prices.
+    *   You can edit or delete items as needed.
+3.  **Split the Bill:**
+    *   Assign each item to the person who ordered it.
+    *   You can also split items between multiple people.
+4.  **View the Breakdown:**
+    *   Splitzy will show you who owes what, including tax.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Technologies Used
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*   **Frontend:**
+    *   [Next.js](https://nextjs.org/) - React framework for building user interfaces.
+    *   [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework.
+*   **Backend:**
+    *   [Google Gemini](https://ai.google/discover/gemini/) - AI model for bill scanning.
