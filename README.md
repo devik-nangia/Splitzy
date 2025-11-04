@@ -1,5 +1,7 @@
 # Splitzy
 
+working link: https://splitzy-ruby.vercel.app/
+
 Splitzy is a web application that helps you split bills with friends. You can either upload a picture of your bill or enter the items manually, and Splitzy will handle the rest.
 
 ## Features
